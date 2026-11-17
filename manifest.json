@@ -1,0 +1,16 @@
+{
+  "id": "huanggua",
+  "name": "黄瓜短剧",
+  "version": "1.0.0",
+  "description": "黄瓜短剧，支持推荐、AI 短剧、AI 漫剧、AI 魔改、真人短剧、原创短剧与播放解析。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "hgdja1.com",
+    "*.ywwegfkd.cc",
+    "*.eyrkjyudz.cc"
+  ],
+  "capabilities": [],
+  "baseUrl": "https://hgdja1.com/"
+}
