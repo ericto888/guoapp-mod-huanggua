@@ -1,14 +1,28 @@
-const navUrl = "https://hgdja1.com/";
+const navUrl = "https://hgdju.com/homeward";
+const legacyNavUrls = ["https://hgdja1.com/"];
 const userAgent =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 const hostTtlMs = 30 * 60 * 1000;
+const hostCacheKey = "huanggua.latestHost.v1";
 const seedHosts = [
+  "https://hgdj17.com",
+  "https://hgdjb15.com",
+  "https://hgdj1.app",
   "https://abc.ywwegfkd.cc",
   "https://qwer.ywwegfkd.cc",
   "https://xyz.ywwegfkd.cc",
   "https://mkqjue.eyrkjyudz.cc",
   "https://porncz.eyrkjyudz.cc",
   "https://rixgqa.eyrkjyudz.cc",
+];
+const allowedHostSuffixes = [
+  "hgdju.com",
+  "hgdja1.com",
+  "hgdj1.app",
+  "hgdj17.com",
+  "hgdjb15.com",
+  "ywwegfkd.cc",
+  "eyrkjyudz.cc",
 ];
 const categoriesList = [
   { id: "", name: "推荐" },
@@ -29,7 +43,7 @@ const categoryIds = {
   browse: true,
 };
 const hostLinkPattern =
-  /https?:\/\/[a-zA-Z0-9][a-zA-Z0-9-]*\.(?:ywwegfkd\.cc|eyrkjyudz\.cc)/gi;
+  /https?:\\?\/\\?\/(?:[a-zA-Z0-9-]+\\?\.)+[a-zA-Z]{2,}(?:\\?:[0-9]+)?(?:\\?\/[^\\s"'<>]*)?/gi;
 const aliasPattern = /href="\/drama\/([a-zA-Z0-9\-]+)"/;
 const imgTagPattern = /<img\b[^>]*>/gi;
 const imgAttrPattern = /([a-zA-Z:_-]+)\s*=\s*"([^"]*)"/g;
@@ -153,55 +167,133 @@ function base64Raw(value) {
   return output.replace(/=+$/, "");
 }
 
-function fetchText(address, referer, timeoutMs) {
+function fetchResponse(address, referer, timeoutMs) {
   const response = host.fetchText({
     url: address,
     referer: referer,
     userAgent: userAgent,
     timeoutMs: timeoutMs || 20000,
   });
-  return typeof response === "string" ? response : text(response && response.body);
+  return typeof response === "string" ? { body: response } : response || {};
+}
+
+function fetchText(address, referer, timeoutMs) {
+  const response = fetchResponse(address, referer, timeoutMs);
+  const status = Number(response.status || 0);
+  if (status >= 400) {
+    throw new Error("HTTP " + status + "：" + address);
+  }
+  return text(response.body);
+}
+
+function cacheReadHost() {
+  try {
+    const value = text(host.cacheGet(hostCacheKey));
+    if (value === "") return "";
+    const parsed = JSON.parse(value);
+    return typeof parsed.host === "string" ? parsed.host.replace(/\/+$/, "") : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function cacheWriteHost(value) {
+  try {
+    host.cacheSet(
+      hostCacheKey,
+      JSON.stringify({ host: value, updatedAt: Date.now() }),
+      hostTtlMs
+    );
+  } catch (error) {}
+}
+
+function allowedCandidate(value) {
+  const candidate = text(value).replace(/\/+$/, "");
+  const match = /^https:\/\/([^/:?#]+)(?::[0-9]+)?$/i.exec(candidate);
+  if (!match) return false;
+  const hostname = match[1].toLowerCase();
+  return allowedHostSuffixes.some(function (suffix) {
+    return hostname === suffix || hostname.endsWith("." + suffix);
+  });
+}
+
+function extractCandidateUrls(body) {
+  const source = htmlUnescape(String(body || "")).replace(/\\\//g, "/");
+  return source.match(/https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\\s"'<>]*)?/gi) || [];
 }
 
 function addCandidate(list, seen, value) {
-  let candidate = text(value).replace(/\/+$/, "");
-  if (candidate === "" || candidate.includes("hgdja1.com") || seen[candidate]) {
-    return;
-  }
+  let candidate = text(value).replace(/[),.;]$/, "");
+  const match = /^https?:\/\/[^/]+/i.exec(candidate);
+  if (!match) return;
+  candidate = match[0].replace(/\/+$/, "").replace(/^http:/i, "https:");
+  if (!allowedCandidate(candidate) || seen[candidate]) return;
   seen[candidate] = true;
   list.push(candidate);
 }
 
-function getHost() {
-  if (cachedHost !== "" && Date.now() - cachedAt < hostTtlMs) {
+function validateHost(candidate) {
+  try {
+    const body = fetchText(candidate + "/aiduanju", candidate + "/", 12000);
+    return body.includes("黄瓜短剧") && body.includes("/drama/");
+  } catch (error) {
+    return false;
+  }
+}
+
+function getHost(forceRefresh) {
+  if (!forceRefresh && cachedHost !== "" && Date.now() - cachedAt < hostTtlMs) {
     return cachedHost;
   }
+  if (!forceRefresh) {
+    const persisted = cacheReadHost();
+    if (persisted !== "") {
+      cachedHost = persisted;
+      cachedAt = Date.now();
+      return persisted;
+    }
+  }
+
   const candidates = [];
   const seen = {};
-  try {
-    const nav = fetchText(navUrl, navUrl, 12000);
-    const matches = nav.match(hostLinkPattern) || [];
-    for (const match of matches.slice(0, 12)) {
-      addCandidate(candidates, seen, match);
-    }
-  } catch (error) {}
-  for (const seed of seedHosts) {
-    addCandidate(candidates, seen, seed);
-  }
-  if (cachedHost !== "") {
-    candidates.unshift(cachedHost);
-  }
-  for (const candidate of candidates) {
+  for (const address of [navUrl].concat(legacyNavUrls)) {
     try {
-      const body = fetchText(candidate + "/aiduanju", candidate + "/", 12000);
-      if (body.includes("黄瓜短剧") && body.includes("/drama/")) {
-        cachedHost = candidate;
-        cachedAt = Date.now();
-        return candidate;
+      const response = fetchResponse(address, address, 15000);
+      const headers = response.headers || {};
+      addCandidate(candidates, seen, response.url || response.finalUrl || "");
+      addCandidate(candidates, seen, headers.location || headers.Location || "");
+      for (const match of extractCandidateUrls(response.body)) {
+        addCandidate(candidates, seen, match);
       }
     } catch (error) {}
   }
-  throw new Error("黄瓜短剧当前没有可用线路");
+  for (const seed of seedHosts) addCandidate(candidates, seen, seed);
+  if (cachedHost !== "") addCandidate(candidates, seen, cachedHost);
+  const persisted = cacheReadHost();
+  if (persisted !== "") addCandidate(candidates, seen, persisted);
+
+  for (const candidate of candidates) {
+    if (validateHost(candidate)) {
+      cachedHost = candidate;
+      cachedAt = Date.now();
+      cacheWriteHost(candidate);
+      return candidate;
+    }
+  }
+  throw new Error(
+    "黄瓜短剧未发现可用线路。请先开启 VPN 刷新最新地址，再关闭 VPN 重试"
+  );
+}
+
+function fetchPageWithRefresh(address, referer) {
+  try {
+    return fetchText(address, referer);
+  } catch (firstError) {
+    const refreshedHost = getHost(true);
+    const pathMatch = /^https?:\/\/[^/]+(\/[^?#]*)?(?:[?#].*)?$/i.exec(address);
+    const path = pathMatch && pathMatch[1] ? pathMatch[1] : "/";
+    return fetchText(refreshedHost + path, refreshedHost + "/");
+  }
 }
 
 function payloadValue(values, value) {
@@ -521,7 +613,7 @@ function catalogPage(page, category) {
   }
   const siteHost = getHost();
   const path = value === "" ? "/" : "/" + value;
-  const body = fetchText(siteHost + path, siteHost + "/");
+  const body = fetchPageWithRefresh(siteHost + path, siteHost + "/");
   const items = parseCards(body, siteHost);
   if (items.length === 0) {
     throw new Error("黄瓜短剧没有返回剧集，请稍后重试");
@@ -540,7 +632,7 @@ function detail(sourceId) {
   }
   const siteHost = getHost();
   const pageUrl = siteHost + "/drama/" + alias;
-  const body = fetchText(pageUrl, siteHost + "/");
+  const body = fetchPageWithRefresh(pageUrl, siteHost + "/");
   let title = "";
   const titleMatch = h1Pattern.exec(body);
   if (titleMatch !== null) {
@@ -632,7 +724,7 @@ function resolveMedia(task) {
   if (pageUrl === "") {
     throw new Error("黄瓜短剧播放地址无效");
   }
-  const body = fetchText(pageUrl, pageUrl);
+  const body = fetchPageWithRefresh(pageUrl, pageUrl);
   const media = parsePlayUrl(body);
   if (media === "") {
     throw new Error("黄瓜短剧没有返回播放地址");

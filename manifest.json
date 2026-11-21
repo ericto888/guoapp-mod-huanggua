@@ -1,16 +1,24 @@
 {
   "id": "huanggua",
   "name": "黄瓜短剧",
-  "version": "1.0.0",
-  "description": "黄瓜短剧，支持推荐、AI 短剧、AI 漫剧、AI 魔改、真人短剧、原创短剧与播放解析。",
+  "version": "1.0.1",
+  "description": "黄瓜短剧，支持最新地址自动发现、VPN 下刷新线路、线路缓存与失效回退，以及分类、详情和播放解析。",
   "runtime": "js",
   "api": 1,
   "adult": false,
   "hosts": [
+    "hgdju.com",
+    "*.hgdju.com",
     "hgdja1.com",
+    "hgdj1.app",
+    "*.hgdj1.app",
+    "hgdj17.com",
+    "*.hgdj17.com",
+    "hgdjb15.com",
+    "*.hgdjb15.com",
     "*.ywwegfkd.cc",
     "*.eyrkjyudz.cc"
   ],
   "capabilities": [],
-  "baseUrl": "https://hgdja1.com/"
+  "baseUrl": "https://hgdju.com/"
 }
