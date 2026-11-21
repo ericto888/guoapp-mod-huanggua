@@ -219,7 +219,7 @@ function allowedCandidate(value) {
 
 function extractCandidateUrls(body) {
   const source = htmlUnescape(String(body || "")).replace(/\\\//g, "/");
-  return source.match(/https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\\s"'<>]*)?/gi) || [];
+  return source.match(/https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s"'<>]*)?/gi) || [];
 }
 
 function addCandidate(list, seen, value) {
@@ -285,15 +285,21 @@ function getHost(forceRefresh) {
   );
 }
 
-function fetchPageWithRefresh(address, referer) {
+function fetchPageWithRefresh(address, referer, validator) {
+  let body = "";
   try {
-    return fetchText(address, referer);
-  } catch (firstError) {
-    const refreshedHost = getHost(true);
-    const pathMatch = /^https?:\/\/[^/]+(\/[^?#]*)?(?:[?#].*)?$/i.exec(address);
-    const path = pathMatch && pathMatch[1] ? pathMatch[1] : "/";
-    return fetchText(refreshedHost + path, refreshedHost + "/");
+    body = fetchText(address, referer);
+    if (!validator || validator(body)) return body;
+  } catch (error) {}
+
+  const refreshedHost = getHost(true);
+  const pathMatch = /^https?:\/\/[^/]+(\/[^?#]*)?(?:[?#].*)?$/i.exec(address);
+  const path = pathMatch && pathMatch[1] ? pathMatch[1] : "/";
+  body = fetchText(refreshedHost + path, refreshedHost + "/");
+  if (validator && !validator(body)) {
+    throw new Error("黄瓜短剧最新地址已刷新，但页面结构仍不可用");
   }
+  return body;
 }
 
 function payloadValue(values, value) {
@@ -613,7 +619,9 @@ function catalogPage(page, category) {
   }
   const siteHost = getHost();
   const path = value === "" ? "/" : "/" + value;
-  const body = fetchPageWithRefresh(siteHost + path, siteHost + "/");
+  const body = fetchPageWithRefresh(siteHost + path, siteHost + "/", function (value) {
+    return value.includes("黄瓜短剧") && value.includes("<article data-xpch");
+  });
   const items = parseCards(body, siteHost);
   if (items.length === 0) {
     throw new Error("黄瓜短剧没有返回剧集，请稍后重试");
@@ -632,7 +640,9 @@ function detail(sourceId) {
   }
   const siteHost = getHost();
   const pageUrl = siteHost + "/drama/" + alias;
-  const body = fetchPageWithRefresh(pageUrl, siteHost + "/");
+  const body = fetchPageWithRefresh(pageUrl, siteHost + "/", function (value) {
+    return /<h1\b/i.test(value);
+  });
   let title = "";
   const titleMatch = h1Pattern.exec(body);
   if (titleMatch !== null) {
@@ -724,7 +734,9 @@ function resolveMedia(task) {
   if (pageUrl === "") {
     throw new Error("黄瓜短剧播放地址无效");
   }
-  const body = fetchPageWithRefresh(pageUrl, pageUrl);
+  const body = fetchPageWithRefresh(pageUrl, pageUrl, function (value) {
+    return parsePlayUrl(value) !== "";
+  });
   const media = parsePlayUrl(body);
   if (media === "") {
     throw new Error("黄瓜短剧没有返回播放地址");
