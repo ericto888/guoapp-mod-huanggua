@@ -629,6 +629,16 @@ function catalogPage(page, category) {
   return { items: items, hasMore: false };
 }
 
+function home() {
+  let items = [];
+  try {
+    items = catalogPage(1, "").items.slice(0, 5);
+  } catch (error) {
+    // Keep the category navigation available if the landing-page catalog is temporarily unavailable.
+  }
+  return { categories: categories(), items: items };
+}
+
 function search(page, query) {
   return { items: [], hasMore: false };
 }
@@ -747,6 +757,7 @@ function resolveMedia(task) {
 module.exports = {
   validCategory: validCategory,
   categories: categories,
+  home: home,
   catalogPage: catalogPage,
   search: search,
   detail: detail,
