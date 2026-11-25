@@ -1,7 +1,7 @@
 {
   "id": "huanggua",
   "name": "黄瓜短剧",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "黄瓜短剧，支持最新地址自动发现、VPN 下刷新线路、线路缓存、页面异常自动换线重试，以及分类、详情和播放解析。",
   "runtime": "js",
   "api": 1,

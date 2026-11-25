@@ -25,7 +25,7 @@ const allowedHostSuffixes = [
   "eyrkjyudz.cc",
 ];
 const categoriesList = [
-  { id: "", name: "推荐" },
+  { id: "recommend", name: "推荐" },
   { id: "aiduanju", name: "AI 短剧" },
   { id: "manju", name: "AI 漫剧" },
   { id: "mogai", name: "AI 魔改" },
@@ -34,7 +34,7 @@ const categoriesList = [
   { id: "browse", name: "全部" },
 ];
 const categoryIds = {
-  "": true,
+  recommend: true,
   aiduanju: true,
   manju: true,
   mogai: true,
@@ -618,7 +618,7 @@ function catalogPage(page, category) {
     throw new Error("黄瓜短剧分类无效");
   }
   const siteHost = getHost();
-  const path = value === "" ? "/" : "/" + value;
+  const path = value === "recommend" ? "/" : "/" + value;
   const body = fetchPageWithRefresh(siteHost + path, siteHost + "/", function (value) {
     return value.includes("黄瓜短剧") && value.includes("<article data-xpch");
   });
@@ -632,7 +632,7 @@ function catalogPage(page, category) {
 function home() {
   let items = [];
   try {
-    items = catalogPage(1, "").items.slice(0, 5);
+    items = catalogPage(1, "recommend").items.slice(0, 5);
   } catch (error) {
     // Keep the category navigation available if the landing-page catalog is temporarily unavailable.
   }
